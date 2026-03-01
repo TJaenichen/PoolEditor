@@ -49,7 +49,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
     [scale, offsetX, offsetY],
   )
 
-  // Keyboard shortcuts: Delete, d to remove; Escape to deselect; arrows to move ball
+  // Keyboard shortcuts: Delete/d remove; Escape deselect; arrows move; Q/E rotate cue
   useEffect(() => {
     if (readOnly) return
     const handler = (e: KeyboardEvent) => {
@@ -61,7 +61,29 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
       } else if (e.key === 'Escape') {
         dispatch({ type: 'SELECT', id: null })
         dispatch({ type: 'CLEAR_DRAWING' })
+      } else if (e.key === 'q' || e.key === 'Q' || e.key === 'e' || e.key === 'E') {
+        if (s.selectedId !== 'cue' || !s.tableState.cue) return
+        e.preventDefault()
+        const step = e.shiftKey ? 1 : 5
+        const dir = (e.key === 'q' || e.key === 'Q') ? 1 : -1
+        const angle = ((s.tableState.cue.angle + dir * step) % 360 + 360) % 360
+        dispatch({ type: 'ROTATE_CUE', angle })
       } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        // Move selected cue
+        if (s.selectedId === 'cue' && s.tableState.cue) {
+          e.preventDefault()
+          const step = e.shiftKey ? 1 : TABLE.BALL_RADIUS
+          let { x, y } = s.tableState.cue.position
+          if (e.key === 'ArrowUp') y -= step
+          if (e.key === 'ArrowDown') y += step
+          if (e.key === 'ArrowLeft') x -= step
+          if (e.key === 'ArrowRight') x += step
+          x = Math.max(0, Math.min(TABLE.WIDTH, x))
+          y = Math.max(0, Math.min(TABLE.HEIGHT, y))
+          dispatch({ type: 'MOVE_CUE', position: { x, y } })
+          return
+        }
+        // Move selected ball
         const selectedBall = s.tableState.balls.find((b) => b.id === s.selectedId)
         if (!selectedBall) return
         e.preventDefault()
@@ -312,6 +334,9 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
           cue={state.tableState.cue}
           offsetX={offsetX}
           offsetY={offsetY}
+          selected={state.selectedId === 'cue'}
+          onClick={() => dispatch({ type: 'SELECT', id: 'cue' })}
+          onDragEnd={(x, y) => dispatch({ type: 'MOVE_CUE', position: { x, y } })}
         />
         {/* Cue drag preview while placing */}
         {cueDragStart && cueDragCurrent && (

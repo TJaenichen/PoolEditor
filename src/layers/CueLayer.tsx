@@ -1,17 +1,20 @@
-import { Layer, Line, Circle } from 'react-konva'
+import { Layer, Line, Circle, Group } from 'react-konva'
 import { Cue } from '../types'
 
 interface CueLayerProps {
   cue?: Cue
   offsetX: number
   offsetY: number
+  selected?: boolean
+  onClick?: () => void
+  onDragEnd?: (x: number, y: number) => void
 }
 
 const CUE_LENGTH = 180
 const CUE_TIP_WIDTH = 2
 const CUE_BUTT_WIDTH = 6
 
-export function CueLayer({ cue, offsetX, offsetY }: CueLayerProps) {
+export function CueLayer({ cue, offsetX, offsetY, selected, onClick, onDragEnd }: CueLayerProps) {
   if (!cue) return null
 
   const angleRad = (cue.angle * Math.PI) / 180
@@ -25,23 +28,46 @@ export function CueLayer({ cue, offsetX, offsetY }: CueLayerProps) {
   const buttY = tipY - sin * CUE_LENGTH
 
   return (
-    <Layer x={offsetX} y={offsetY} listening={false}>
-      {/* Cue shaft */}
-      <Line
-        points={[tipX, tipY, buttX, buttY]}
-        stroke="#d4a56a"
-        strokeWidth={CUE_BUTT_WIDTH}
-        lineCap="round"
-      />
-      {/* Ferrule (white tip section) */}
-      <Line
-        points={[tipX, tipY, tipX - cos * 12, tipY - sin * 12]}
-        stroke="#f5f5dc"
-        strokeWidth={CUE_TIP_WIDTH + 1}
-        lineCap="round"
-      />
-      {/* Tip (blue chalk) */}
-      <Circle x={tipX} y={tipY} radius={CUE_TIP_WIDTH} fill="#4169E1" />
+    <Layer x={offsetX} y={offsetY}>
+      <Group
+        onClick={() => onClick?.()}
+        onTap={() => onClick?.()}
+        draggable={!!selected}
+        onDragEnd={(e) => {
+          const group = e.target
+          const dx = group.x()
+          const dy = group.y()
+          group.position({ x: 0, y: 0 })
+          onDragEnd?.(tipX + dx, tipY + dy)
+        }}
+      >
+        {/* Selection highlight */}
+        {selected && (
+          <Line
+            points={[tipX, tipY, buttX, buttY]}
+            stroke="#FFD700"
+            strokeWidth={CUE_BUTT_WIDTH + 4}
+            lineCap="round"
+            listening={false}
+          />
+        )}
+        {/* Cue shaft */}
+        <Line
+          points={[tipX, tipY, buttX, buttY]}
+          stroke="#d4a56a"
+          strokeWidth={CUE_BUTT_WIDTH}
+          lineCap="round"
+        />
+        {/* Ferrule (white tip section) */}
+        <Line
+          points={[tipX, tipY, tipX - cos * 12, tipY - sin * 12]}
+          stroke="#f5f5dc"
+          strokeWidth={CUE_TIP_WIDTH + 1}
+          lineCap="round"
+        />
+        {/* Tip (blue chalk) */}
+        <Circle x={tipX} y={tipY} radius={CUE_TIP_WIDTH} fill="#4169E1" />
+      </Group>
     </Layer>
   )
 }

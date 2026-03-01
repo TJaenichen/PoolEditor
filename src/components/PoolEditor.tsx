@@ -190,10 +190,10 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
   const handleMouseUp = useCallback(
     () => {
       if (!cueDragStart || !cueDragCurrent) return
-      const dx = cueDragCurrent.x - cueDragStart.x
-      const dy = cueDragCurrent.y - cueDragStart.y
+      const dx = cueDragStart.x - cueDragCurrent.x
+      const dy = cueDragStart.y - cueDragCurrent.y
       const angle = dx === 0 && dy === 0 ? 0 : (-Math.atan2(dy, dx) * 180) / Math.PI
-      dispatch({ type: 'SET_CUE', cue: { position: cueDragStart, angle } })
+      dispatch({ type: 'SET_CUE', cue: { position: cueDragCurrent, angle } })
       dispatch({ type: 'SET_TOOL', tool: 'select' })
       setCueDragStart(null)
       setCueDragCurrent(null)

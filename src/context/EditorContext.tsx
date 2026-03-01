@@ -30,7 +30,6 @@ type EditorAction =
   | { type: 'UPDATE_SHOT_POINT'; shotId: string; pointIndex: number; position: Point }
   | { type: 'REMOVE_SHOT'; id: string }
   | { type: 'RESET_SHOT_TO_STRAIGHT'; id: string }
-  | { type: 'ADD_SHOT_MIDPOINT'; id: string }
   | { type: 'ADD_AREA'; area: Area }
   | { type: 'UPDATE_AREA'; id: string; changes: Partial<Area> }
   | { type: 'UPDATE_AREA_VERTEX'; areaId: string; vertexIndex: number; position: Point }
@@ -115,23 +114,11 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
           ...state.tableState,
           shots: state.tableState.shots.map((s) => {
             if (s.id !== action.id) return s
-            // Keep only first and last point
-            return { ...s, type: 'straight', points: [s.points[0], s.points[s.points.length - 1]] }
-          }),
-        },
-      }
-    }
-    case 'ADD_SHOT_MIDPOINT': {
-      return {
-        ...state,
-        tableState: {
-          ...state.tableState,
-          shots: state.tableState.shots.map((s) => {
-            if (s.id !== action.id || s.points.length < 2) return s
+            // Reset to 3 points with collinear midpoint (looks straight)
             const start = s.points[0]
             const end = s.points[s.points.length - 1]
             const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
-            return { ...s, type: 'curve', points: [start, mid, end] }
+            return { ...s, points: [start, mid, end] }
           }),
         },
       }
@@ -190,6 +177,7 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
 
     case 'ERASE_AT': {
       const id = action.id
+      if (id === 'cue') return { ...reducer(state, { type: 'REMOVE_CUE' }), selectedId: null }
       const hasBall = state.tableState.balls.some((b) => b.id === id)
       if (hasBall) return reducer(state, { type: 'REMOVE_BALL', id })
       const hasShot = state.tableState.shots.some((s) => s.id === id)

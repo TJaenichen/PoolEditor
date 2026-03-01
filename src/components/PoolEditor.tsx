@@ -136,12 +136,14 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
           dispatch({ type: 'ADD_DRAWING_POINT', point: pt })
         } else {
           const start = state.drawingPoints[0]
+          const mid = { x: (start.x + pt.x) / 2, y: (start.y + pt.y) / 2 }
           const shot: Shot = {
             id: `shot-${Date.now()}`,
-            type: 'straight',
-            points: [start, pt],
+            type: 'curve',
+            points: [start, mid, pt],
           }
           dispatch({ type: 'ADD_SHOT', shot })
+          dispatch({ type: 'SET_TOOL', tool: 'select' })
         }
       } else if (tool === 'shot-curve') {
         dispatch({ type: 'ADD_DRAWING_POINT', point: pt })
@@ -160,6 +162,10 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
       if (readOnly) return
       const stage = e.target.getStage()
       if (!stage) return
+
+      const isEmptySpace = e.target === stage || e.target.getParent()?.getClassName() === 'Layer'
+      if (!isEmptySpace) return
+
       const pt = pointerToTable(stage)
       if (!pt) return
 
@@ -285,10 +291,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
           selectedShotId={state.selectedId}
           onShotClick={(shot) => dispatch({ type: 'SELECT', id: shot.id })}
           onShotDblClick={(shot) => {
-            // Double-click a curve → reset to straight
-            if (shot.type === 'curve') {
-              dispatch({ type: 'RESET_SHOT_TO_STRAIGHT', id: shot.id })
-            }
+            dispatch({ type: 'RESET_SHOT_TO_STRAIGHT', id: shot.id })
           }}
           onControlPointDragMove={(shotId, pointIndex, x, y) =>
             dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex, position: { x, y } })
@@ -296,15 +299,6 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
           onControlPointDragEnd={(shotId, pointIndex, x, y) =>
             dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex, position: { x, y } })
           }
-          onMidpointDragStart={(shotId) => {
-            dispatch({ type: 'ADD_SHOT_MIDPOINT', id: shotId })
-          }}
-          onMidpointDragMove={(shotId, x, y) => {
-            dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex: 1, position: { x, y } })
-          }}
-          onMidpointDragEnd={(shotId, x, y) => {
-            dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex: 1, position: { x, y } })
-          }}
           interactive={!readOnly}
           bounces={state.simulationBounces}
         />

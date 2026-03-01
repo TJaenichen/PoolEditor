@@ -190,8 +190,8 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
   const handleMouseUp = useCallback(
     () => {
       if (!cueDragStart || !cueDragCurrent) return
-      const dx = cueDragStart.x - cueDragCurrent.x
-      const dy = cueDragStart.y - cueDragCurrent.y
+      const dx = cueDragCurrent.x - cueDragStart.x
+      const dy = cueDragCurrent.y - cueDragStart.y
       const angle = dx === 0 && dy === 0 ? 0 : (-Math.atan2(dy, dx) * 180) / Math.PI
       dispatch({ type: 'SET_CUE', cue: { position: cueDragCurrent, angle } })
       dispatch({ type: 'SET_TOOL', tool: 'select' })
@@ -241,7 +241,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
           onVertexDragEnd={(areaId, vertexIndex, x, y) =>
             dispatch({ type: 'UPDATE_AREA_VERTEX', areaId, vertexIndex, position: { x, y } })
           }
-          interactive={!readOnly && state.activeTool === 'select'}
+          interactive={!readOnly}
         />
         <ShotLayer
           shots={state.tableState.shots}
@@ -266,7 +266,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
             // The midpoint is index 1 (between start[0] and end[2])
             dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex: 1, position: { x, y } })
           }}
-          interactive={!readOnly && state.activeTool === 'select'}
+          interactive={!readOnly}
         />
         <SimulationLayer
           simulation={state.simulation}
@@ -288,7 +288,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
           onBallDragEnd={(ball, x, y) =>
             dispatch({ type: 'MOVE_BALL', id: ball.id, position: { x, y } })
           }
-          draggable={!readOnly && state.activeTool === 'select'}
+          draggable={!readOnly}
         />
         <CueLayer
           cue={state.tableState.cue}

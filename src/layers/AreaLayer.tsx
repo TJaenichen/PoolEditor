@@ -42,17 +42,17 @@ export function AreaLayer({
               onClick={() => onAreaClick?.(area)}
               onTap={() => onAreaClick?.(area)}
             />
-            {/* Vertex handles when selected */}
-            {isSelected && interactive && area.points.map((pt, i) => (
+            {/* Vertex handles — always visible, draggable when interactive */}
+            {area.points.map((pt, i) => (
               <Circle
                 key={`v-${area.id}-${i}`}
                 x={pt.x}
                 y={pt.y}
                 radius={5}
-                fill="#FFF"
+                fill={isSelected ? '#FFF' : 'rgba(255,255,255,0.5)'}
                 stroke={area.stroke || '#FFD700'}
                 strokeWidth={1.5}
-                draggable
+                draggable={interactive}
                 onDragEnd={(e) => {
                   const pos = e.target.position()
                   onVertexDragEnd?.(area.id, i, pos.x, pos.y)

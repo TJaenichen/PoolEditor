@@ -29,6 +29,8 @@ type EditorAction =
   | { type: 'UPDATE_SHOT'; id: string; changes: Partial<Shot> }
   | { type: 'UPDATE_SHOT_POINT'; shotId: string; pointIndex: number; position: Point }
   | { type: 'REMOVE_SHOT'; id: string }
+  | { type: 'RESET_SHOT_TO_STRAIGHT'; id: string }
+  | { type: 'ADD_SHOT_MIDPOINT'; id: string }
   | { type: 'ADD_AREA'; area: Area }
   | { type: 'UPDATE_AREA'; id: string; changes: Partial<Area> }
   | { type: 'UPDATE_AREA_VERTEX'; areaId: string; vertexIndex: number; position: Point }
@@ -106,6 +108,34 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
         tableState: { ...state.tableState, shots: state.tableState.shots.filter((s) => s.id !== action.id) },
         selectedId: state.selectedId === action.id ? null : state.selectedId,
       }
+    case 'RESET_SHOT_TO_STRAIGHT': {
+      return {
+        ...state,
+        tableState: {
+          ...state.tableState,
+          shots: state.tableState.shots.map((s) => {
+            if (s.id !== action.id) return s
+            // Keep only first and last point
+            return { ...s, type: 'straight', points: [s.points[0], s.points[s.points.length - 1]] }
+          }),
+        },
+      }
+    }
+    case 'ADD_SHOT_MIDPOINT': {
+      return {
+        ...state,
+        tableState: {
+          ...state.tableState,
+          shots: state.tableState.shots.map((s) => {
+            if (s.id !== action.id || s.points.length < 2) return s
+            const start = s.points[0]
+            const end = s.points[s.points.length - 1]
+            const mid = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
+            return { ...s, type: 'curve', points: [start, mid, end] }
+          }),
+        },
+      }
+    }
 
     case 'ADD_AREA':
       return { ...state, tableState: { ...state.tableState, areas: [...state.tableState.areas, action.area] }, drawingPoints: [] }

@@ -28,7 +28,7 @@ export function BallLayer({
             key={ball.id}
             x={ball.position.x}
             y={ball.position.y}
-            draggable={draggable}
+            draggable={draggable && isSelected}
             onClick={() => onBallClick?.(ball)}
             onTap={() => onBallClick?.(ball)}
             onDragEnd={(e) => {
@@ -42,15 +42,13 @@ export function BallLayer({
             <Circle radius={R} fill={colors.fill} stroke={isSelected ? '#FFD700' : '#333'} strokeWidth={isSelected ? 2 : 0.5} />
             {/* Stripe band for balls 9-15 */}
             {colors.stripe && (
-              <>
-                <Arc
-                  angle={180}
-                  rotation={-90}
-                  innerRadius={R * 0.45}
-                  outerRadius={R}
-                  fill="#FFFFFF"
-                />
-              </>
+              <Arc
+                angle={180}
+                rotation={-90}
+                innerRadius={R * 0.45}
+                outerRadius={R}
+                fill="#FFFFFF"
+              />
             )}
             {/* Number circle + text (except cue ball) */}
             {!isCue && (

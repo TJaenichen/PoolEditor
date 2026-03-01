@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Stage, Layer, Line, Circle } from 'react-konva'
 import type Konva from 'konva'
 import { EditorProvider, useEditor } from '../context/EditorContext'
@@ -19,6 +19,11 @@ import { toJSON } from '../utils/serialization'
 function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean }) {
   const { state, dispatch } = useEditor()
   const stageRef = useRef<Konva.Stage>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Cue drag state
+  const [cueDragStart, setCueDragStart] = useState<Point | null>(null)
+  const [cueDragCurrent, setCueDragCurrent] = useState<Point | null>(null)
 
   // Table offset: center the playing surface with rail padding
   const scale = width / (TABLE.WIDTH + TABLE.RAIL_WIDTH * 2)
@@ -34,13 +39,30 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
       if (!pointer) return null
       const x = pointer.x / scale - offsetX
       const y = pointer.y / scale - offsetY
-      // Clamp to table bounds
       if (x < 0 || x > TABLE.WIDTH || y < 0 || y > TABLE.HEIGHT) return null
       return { x, y }
     },
     [scale, offsetX, offsetY],
   )
 
+  // Keyboard shortcuts: Delete, d to remove selected item; Escape to deselect
+  useEffect(() => {
+    if (readOnly) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'd' || e.key === 'D') {
+        if (state.selectedId) {
+          dispatch({ type: 'ERASE_AT', id: state.selectedId })
+        }
+      } else if (e.key === 'Escape') {
+        dispatch({ type: 'SELECT', id: null })
+        dispatch({ type: 'CLEAR_DRAWING' })
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [readOnly, state.selectedId, dispatch])
+
+  // Stage click handler
   const handleStageClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (readOnly) return
@@ -57,9 +79,6 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
           type: 'ADD_BALL',
           ball: { id, number: state.selectedBallNumber, position: pt },
         })
-      } else if (tool === 'place-cue') {
-        dispatch({ type: 'SET_CUE', cue: { position: pt, angle: 0 } })
-        dispatch({ type: 'SET_TOOL', tool: 'select' })
       } else if (tool === 'shot-straight') {
         if (state.drawingPoints.length === 0) {
           dispatch({ type: 'ADD_DRAWING_POINT', point: pt })
@@ -86,6 +105,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
     [readOnly, state.activeTool, state.selectedBallNumber, state.drawingPoints, dispatch, pointerToTable],
   )
 
+  // Double-click: finalize curve/area drawing
   const handleStageDblClick = useCallback(
     (e: Konva.KonvaEventObject<MouseEvent>) => {
       if (readOnly) return
@@ -120,92 +140,177 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
     [readOnly, state.activeTool, state.drawingPoints, dispatch, pointerToTable],
   )
 
+  // Cue placement: mousedown starts drag, mousemove updates preview, mouseup places
+  const handleMouseDown = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (readOnly || state.activeTool !== 'place-cue') return
+      const stage = e.target.getStage()
+      if (!stage) return
+      const pt = pointerToTable(stage)
+      if (!pt) return
+      setCueDragStart(pt)
+      setCueDragCurrent(pt)
+    },
+    [readOnly, state.activeTool, pointerToTable],
+  )
+
+  const handleMouseMove = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (!cueDragStart) return
+      const stage = e.target.getStage()
+      if (!stage) return
+      const pointer = stage.getPointerPosition()
+      if (!pointer) return
+      const x = pointer.x / scale - offsetX
+      const y = pointer.y / scale - offsetY
+      setCueDragCurrent({ x, y })
+    },
+    [cueDragStart, scale, offsetX, offsetY],
+  )
+
+  const handleMouseUp = useCallback(
+    () => {
+      if (!cueDragStart || !cueDragCurrent) return
+      const dx = cueDragCurrent.x - cueDragStart.x
+      const dy = cueDragCurrent.y - cueDragStart.y
+      const angle = dx === 0 && dy === 0 ? 0 : (-Math.atan2(dy, dx) * 180) / Math.PI
+      dispatch({ type: 'SET_CUE', cue: { position: cueDragStart, angle } })
+      dispatch({ type: 'SET_TOOL', tool: 'select' })
+      setCueDragStart(null)
+      setCueDragCurrent(null)
+    },
+    [cueDragStart, cueDragCurrent, dispatch],
+  )
+
+  // Cursor style based on active tool
+  const cursorMap: Record<string, string> = {
+    'select': 'default',
+    'place-ball': 'crosshair',
+    'place-cue': 'crosshair',
+    'shot-straight': 'crosshair',
+    'shot-curve': 'crosshair',
+    'draw-area': 'crosshair',
+    'eraser': 'pointer',
+  }
+
   return (
-    <Stage
-      ref={stageRef}
-      width={stageWidth}
-      height={stageHeight}
-      scaleX={scale}
-      scaleY={scale}
-      onClick={handleStageClick}
-      onDblClick={handleStageDblClick}
-      style={{ background: '#111', borderRadius: '4px', cursor: readOnly ? 'default' : 'crosshair' }}
-    >
-      <TableLayer offsetX={offsetX} offsetY={offsetY} />
-      <AreaLayer
-        areas={state.tableState.areas}
-        offsetX={offsetX}
-        offsetY={offsetY}
-        selectedAreaId={state.selectedId}
-        onAreaClick={(area) => dispatch({ type: 'SELECT', id: area.id })}
-        onVertexDragEnd={(areaId, vertexIndex, x, y) =>
-          dispatch({ type: 'UPDATE_AREA_VERTEX', areaId, vertexIndex, position: { x, y } })
-        }
-        interactive={!readOnly && state.activeTool === 'select'}
-      />
-      <ShotLayer
-        shots={state.tableState.shots}
-        offsetX={offsetX}
-        offsetY={offsetY}
-        selectedShotId={state.selectedId}
-        onShotClick={(shot) => dispatch({ type: 'SELECT', id: shot.id })}
-        onControlPointDragEnd={(shotId, pointIndex, x, y) =>
-          dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex, position: { x, y } })
-        }
-        interactive={!readOnly && state.activeTool === 'select'}
-      />
-      <SimulationLayer
-        simulation={state.simulation}
-        offsetX={offsetX}
-        offsetY={offsetY}
-      />
-      <BallLayer
-        balls={state.tableState.balls}
-        offsetX={offsetX}
-        offsetY={offsetY}
-        selectedBallId={state.selectedId}
-        onBallClick={(ball) => {
-          if (state.activeTool === 'eraser') {
-            dispatch({ type: 'REMOVE_BALL', id: ball.id })
-          } else {
-            dispatch({ type: 'SELECT', id: ball.id })
-          }
+    <div ref={containerRef} tabIndex={0} style={{ outline: 'none' }}>
+      <Stage
+        ref={stageRef}
+        width={stageWidth}
+        height={stageHeight}
+        scaleX={scale}
+        scaleY={scale}
+        onClick={handleStageClick}
+        onDblClick={handleStageDblClick}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        style={{
+          background: '#111',
+          borderRadius: '4px',
+          cursor: readOnly ? 'default' : (cursorMap[state.activeTool] || 'crosshair'),
         }}
-        onBallDragEnd={(ball, x, y) =>
-          dispatch({ type: 'MOVE_BALL', id: ball.id, position: { x, y } })
-        }
-        draggable={!readOnly && state.activeTool === 'select'}
-      />
-      <CueLayer
-        cue={state.tableState.cue}
-        offsetX={offsetX}
-        offsetY={offsetY}
-        onDragEnd={(x, y) => dispatch({ type: 'MOVE_CUE', position: { x, y } })}
-        onAngleChange={(angle) => dispatch({ type: 'ROTATE_CUE', angle })}
-        draggable={!readOnly && state.activeTool === 'select'}
-      />
-      {/* Drawing preview: in-progress points */}
-      {state.drawingPoints.length > 0 && (
-        <Layer x={offsetX} y={offsetY}>
-          <Line
-            points={state.drawingPoints.flatMap((p) => [p.x, p.y])}
-            stroke="rgba(255,255,255,0.5)"
-            strokeWidth={1.5}
-            dash={[4, 4]}
-            closed={state.activeTool === 'draw-area'}
-          />
-          {state.drawingPoints.map((p, i) => (
-            <Circle
-              key={`dp-${i}`}
-              x={p.x}
-              y={p.y}
-              radius={4}
-              fill="rgba(255,255,255,0.7)"
+      >
+        <TableLayer offsetX={offsetX} offsetY={offsetY} />
+        <AreaLayer
+          areas={state.tableState.areas}
+          offsetX={offsetX}
+          offsetY={offsetY}
+          selectedAreaId={state.selectedId}
+          onAreaClick={(area) => dispatch({ type: 'SELECT', id: area.id })}
+          onVertexDragEnd={(areaId, vertexIndex, x, y) =>
+            dispatch({ type: 'UPDATE_AREA_VERTEX', areaId, vertexIndex, position: { x, y } })
+          }
+          interactive={!readOnly && state.activeTool === 'select'}
+        />
+        <ShotLayer
+          shots={state.tableState.shots}
+          offsetX={offsetX}
+          offsetY={offsetY}
+          selectedShotId={state.selectedId}
+          onShotClick={(shot) => dispatch({ type: 'SELECT', id: shot.id })}
+          onShotDblClick={(shot) => {
+            // Double-click a curve → reset to straight
+            if (shot.type === 'curve') {
+              dispatch({ type: 'RESET_SHOT_TO_STRAIGHT', id: shot.id })
+            }
+          }}
+          onControlPointDragEnd={(shotId, pointIndex, x, y) =>
+            dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex, position: { x, y } })
+          }
+          onMidpointDragStart={(shotId) => {
+            // Convert straight shot to curve by adding midpoint
+            dispatch({ type: 'ADD_SHOT_MIDPOINT', id: shotId })
+          }}
+          onMidpointDragEnd={(shotId, x, y) => {
+            // The midpoint is index 1 (between start[0] and end[2])
+            dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex: 1, position: { x, y } })
+          }}
+          interactive={!readOnly && state.activeTool === 'select'}
+        />
+        <SimulationLayer
+          simulation={state.simulation}
+          offsetX={offsetX}
+          offsetY={offsetY}
+        />
+        <BallLayer
+          balls={state.tableState.balls}
+          offsetX={offsetX}
+          offsetY={offsetY}
+          selectedBallId={state.selectedId}
+          onBallClick={(ball) => {
+            if (state.activeTool === 'eraser') {
+              dispatch({ type: 'REMOVE_BALL', id: ball.id })
+            } else {
+              dispatch({ type: 'SELECT', id: ball.id })
+            }
+          }}
+          onBallDragEnd={(ball, x, y) =>
+            dispatch({ type: 'MOVE_BALL', id: ball.id, position: { x, y } })
+          }
+          draggable={!readOnly && state.activeTool === 'select'}
+        />
+        <CueLayer
+          cue={state.tableState.cue}
+          offsetX={offsetX}
+          offsetY={offsetY}
+        />
+        {/* Cue drag preview while placing */}
+        {cueDragStart && cueDragCurrent && (
+          <Layer x={offsetX} y={offsetY} listening={false}>
+            <Line
+              points={[cueDragStart.x, cueDragStart.y, cueDragCurrent.x, cueDragCurrent.y]}
+              stroke="rgba(255,255,255,0.5)"
+              strokeWidth={2}
+              dash={[6, 4]}
             />
-          ))}
-        </Layer>
-      )}
-    </Stage>
+            <Circle x={cueDragStart.x} y={cueDragStart.y} radius={4} fill="rgba(255,255,255,0.7)" />
+          </Layer>
+        )}
+        {/* Drawing preview: in-progress points */}
+        {state.drawingPoints.length > 0 && (
+          <Layer x={offsetX} y={offsetY}>
+            <Line
+              points={state.drawingPoints.flatMap((p) => [p.x, p.y])}
+              stroke="rgba(255,255,255,0.5)"
+              strokeWidth={1.5}
+              dash={[4, 4]}
+              closed={state.activeTool === 'draw-area'}
+            />
+            {state.drawingPoints.map((p, i) => (
+              <Circle
+                key={`dp-${i}`}
+                x={p.x}
+                y={p.y}
+                radius={4}
+                fill="rgba(255,255,255,0.7)"
+              />
+            ))}
+          </Layer>
+        )}
+      </Stage>
+    </div>
   )
 }
 

@@ -56,6 +56,21 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
       } else if (e.key === 'Escape') {
         dispatch({ type: 'SELECT', id: null })
         dispatch({ type: 'CLEAR_DRAWING' })
+      } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        // Move selected ball with arrow keys
+        const selectedBall = state.tableState.balls.find((b) => b.id === state.selectedId)
+        if (!selectedBall) return
+        e.preventDefault()
+        const step = e.shiftKey ? 1 : TABLE.BALL_RADIUS // shift = 1px, normal = half ball width
+        let { x, y } = selectedBall.position
+        if (e.key === 'ArrowUp') y -= step
+        if (e.key === 'ArrowDown') y += step
+        if (e.key === 'ArrowLeft') x -= step
+        if (e.key === 'ArrowRight') x += step
+        // Clamp to table
+        x = Math.max(0, Math.min(TABLE.WIDTH, x))
+        y = Math.max(0, Math.min(TABLE.HEIGHT, y))
+        dispatch({ type: 'MOVE_BALL', id: selectedBall.id, position: { x, y } })
       }
     }
     window.addEventListener('keydown', handler)

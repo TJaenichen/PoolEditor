@@ -1,4 +1,4 @@
-import { Layer, Circle, Text, Group, Arc } from 'react-konva'
+import { Layer, Circle, Text, Group, Arc, Line } from 'react-konva'
 import { Ball, BALL_COLORS, TABLE } from '../types'
 
 interface BallLayerProps {
@@ -15,9 +15,27 @@ export function BallLayer({
   balls, offsetX, offsetY, selectedBallId, onBallClick, onBallDragEnd, draggable = false
 }: BallLayerProps) {
   const R = TABLE.BALL_RADIUS
+  const selectedBall = selectedBallId ? balls.find((b) => b.id === selectedBallId) : null
 
   return (
     <Layer x={offsetX} y={offsetY}>
+      {/* Crosshair guide lines for selected ball */}
+      {selectedBall && (
+        <>
+          <Line
+            points={[selectedBall.position.x, 0, selectedBall.position.x, TABLE.HEIGHT]}
+            stroke="rgba(255, 215, 0, 0.25)"
+            strokeWidth={1}
+            listening={false}
+          />
+          <Line
+            points={[0, selectedBall.position.y, TABLE.WIDTH, selectedBall.position.y]}
+            stroke="rgba(255, 215, 0, 0.25)"
+            strokeWidth={1}
+            listening={false}
+          />
+        </>
+      )}
       {balls.map((ball) => {
         const colors = BALL_COLORS[ball.number] || { fill: '#999', stripe: false }
         const isSelected = ball.id === selectedBallId

@@ -1,7 +1,7 @@
 import { Layer, Line, Circle, Arrow, Group, Text } from 'react-konva'
-import { Shot, Point, TABLE } from '../types'
+import { Shot, Ball, Point, BALL_COLORS, TABLE } from '../types'
 import { catmullRomToBezier, sampleBezierPath } from '../utils/spline'
-import { computeTrajectory } from '../utils/physics'
+import { computeTrajectory, simulatePhysics } from '../utils/physics'
 
 interface ShotLayerProps {
   shots: Shot[]
@@ -14,12 +14,16 @@ interface ShotLayerProps {
   onControlPointDragEnd?: (shotId: string, pointIndex: number, x: number, y: number) => void
   interactive?: boolean
   bounces?: number
+  physicsEnabled?: boolean
+  balls?: Ball[]
+  friction?: number
+  pocketsEnabled?: boolean
 }
 
 export function ShotLayer({
   shots, offsetX, offsetY, selectedShotId, onShotClick, onShotDblClick,
   onControlPointDragMove, onControlPointDragEnd, interactive = false,
-  bounces = 0,
+  bounces = 0, physicsEnabled = false, balls = [], friction = 0.3, pocketsEnabled = true,
 }: ShotLayerProps) {
   return (
     <Layer x={offsetX} y={offsetY}>
@@ -36,14 +40,19 @@ export function ShotLayer({
 
         // Continuation trajectory from endpoint
         let traj = null
-        if (bounces > 0 && curvePoints.length >= 2) {
+        let physicsTraj = null
+        if (curvePoints.length >= 2) {
           const fromPt = curvePoints[curvePoints.length - 2]
           const toPt = curvePoints[curvePoints.length - 1]
           const dx = toPt.x - fromPt.x
           const dy = toPt.y - fromPt.y
           if (dx !== 0 || dy !== 0) {
             const angle = (-Math.atan2(dy, dx) * 180) / Math.PI
-            traj = computeTrajectory(toPt, angle, bounces)
+            if (physicsEnabled && balls.length > 0) {
+              physicsTraj = simulatePhysics(toPt, angle, balls, { friction, pocketsEnabled })
+            } else if (bounces > 0) {
+              traj = computeTrajectory(toPt, angle, bounces)
+            }
           }
         }
 
@@ -80,7 +89,7 @@ export function ShotLayer({
                 strokeWidth={0}
               />
             )}
-            {/* Continuation trajectory */}
+            {/* Continuation trajectory (simple) */}
             {traj && traj.segments.length > 0 && (() => {
               const trajPts: number[] = []
               trajPts.push(traj.segments[0].start.x, traj.segments[0].start.y)
@@ -97,6 +106,30 @@ export function ShotLayer({
                 </Group>
               )
             })()}
+            {/* Continuation trajectory (physics) */}
+            {physicsTraj && physicsTraj.ballPaths.length > 0 && (
+              <Group listening={false}>
+                {physicsTraj.ballPaths.map((path) => {
+                  if (path.segments.length === 0) return null
+                  const isCue = path.ballId === '__cue__'
+                  const pathColor = isCue ? color : (BALL_COLORS[path.ballNumber]?.fill || '#ccc')
+                  const pts: number[] = []
+                  pts.push(path.segments[0].start.x, path.segments[0].start.y)
+                  for (const seg of path.segments) pts.push(seg.end.x, seg.end.y)
+                  return (
+                    <Group key={`phys-${shot.id}-${path.ballId}`}>
+                      <Line points={pts} stroke={pathColor} strokeWidth={1} opacity={0.35} dash={[4, 4]} />
+                      {path.segments.slice(0, -1).map((seg, i) => (
+                        <Circle key={`pb-${shot.id}-${path.ballId}-${i}`} x={seg.end.x} y={seg.end.y} radius={2} fill={pathColor} opacity={0.4} />
+                      ))}
+                      {!path.pocketed && (
+                        <Circle x={path.finalPosition.x} y={path.finalPosition.y} radius={TABLE.BALL_RADIUS} stroke={pathColor} strokeWidth={1} opacity={0.15} dash={[3, 3]} />
+                      )}
+                    </Group>
+                  )
+                })}
+              </Group>
+            )}
             {/* Control point handles — endpoints smaller, mid-handles larger with white fill */}
             {shot.points.map((pt, i) => (
               <Circle

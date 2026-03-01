@@ -27,15 +27,28 @@ const styles = {
     flex: 1,
     cursor: 'pointer',
   },
+  checkbox: {
+    cursor: 'pointer',
+  },
+  label: {
+    cursor: 'pointer',
+    userSelect: 'none' as const,
+  },
 }
 
 export function SimulationControls() {
-  const { bounces, setBounces } = useSimulation()
+  const {
+    bounces, setBounces,
+    physicsEnabled, setPhysicsEnabled,
+    friction, setFriction,
+    pocketsEnabled, setPocketsEnabled,
+  } = useSimulation()
 
   return (
     <div style={styles.panel}>
-      <p style={styles.heading}>Bounces</p>
+      <p style={styles.heading}>Simulation</p>
       <div style={styles.row}>
+        <span>Bounces</span>
         <input
           type="range"
           min={0}
@@ -46,6 +59,42 @@ export function SimulationControls() {
         />
         <span style={{ minWidth: '18px', textAlign: 'right' }}>{bounces}</span>
       </div>
+      <div style={styles.row}>
+        <input
+          id="physics-toggle"
+          type="checkbox"
+          checked={physicsEnabled}
+          onChange={(e) => setPhysicsEnabled(e.target.checked)}
+          style={styles.checkbox}
+        />
+        <label htmlFor="physics-toggle" style={styles.label}>Physics</label>
+      </div>
+      {physicsEnabled && (
+        <>
+          <div style={styles.row}>
+            <span>Friction</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(friction * 100)}
+              onChange={(e) => setFriction(Number(e.target.value) / 100)}
+              style={styles.slider}
+            />
+            <span style={{ minWidth: '28px', textAlign: 'right' }}>{Math.round(friction * 100)}%</span>
+          </div>
+          <div style={styles.row}>
+            <input
+              id="pockets-toggle"
+              type="checkbox"
+              checked={pocketsEnabled}
+              onChange={(e) => setPocketsEnabled(e.target.checked)}
+              style={styles.checkbox}
+            />
+            <label htmlFor="pockets-toggle" style={styles.label}>Pockets</label>
+          </div>
+        </>
+      )}
     </div>
   )
 }

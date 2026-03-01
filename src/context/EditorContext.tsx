@@ -1,7 +1,7 @@
 import { createContext, useContext, useReducer, type ReactNode } from 'react'
-import { Ball, Cue, Shot, Area, Tool, PoolTableState, SimulationResult, Point } from '../types'
+import { Ball, Cue, Shot, Area, Tool, PoolTableState, SimulationResult, PhysicsResult, Point } from '../types'
 import { createEmptyState } from '../utils/serialization'
-import { computeTrajectory } from '../utils/physics'
+import { computeTrajectory, simulatePhysics } from '../utils/physics'
 
 // Extended internal state beyond the serializable PoolTableState
 interface EditorState {
@@ -10,7 +10,11 @@ interface EditorState {
   selectedId: string | null  // id of selected ball, shot, or area
   selectedBallNumber: number // which ball number to place next
   simulation: SimulationResult | null
+  physicsSimulation: PhysicsResult | null
   simulationBounces: number
+  physicsEnabled: boolean
+  friction: number        // 0.0–1.0
+  pocketsEnabled: boolean
   drawingPoints: Point[]  // temp points while drawing a shot or area
 }
 
@@ -38,6 +42,9 @@ type EditorAction =
   | { type: 'CLEAR_DRAWING' }
   | { type: 'SET_SIMULATION'; result: SimulationResult | null }
   | { type: 'SET_SIMULATION_BOUNCES'; count: number }
+  | { type: 'SET_PHYSICS_ENABLED'; enabled: boolean }
+  | { type: 'SET_FRICTION'; value: number }
+  | { type: 'SET_POCKETS_ENABLED'; enabled: boolean }
   | { type: 'RUN_SIMULATION' }
   | { type: 'LOAD_STATE'; state: PoolTableState }
   | { type: 'CLEAR_ALL' }
@@ -163,17 +170,30 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
       return { ...state, simulation: action.result }
     case 'SET_SIMULATION_BOUNCES':
       return { ...state, simulationBounces: action.count }
+    case 'SET_PHYSICS_ENABLED':
+      return { ...state, physicsEnabled: action.enabled }
+    case 'SET_FRICTION':
+      return { ...state, friction: Math.max(0, Math.min(1, action.value)) }
+    case 'SET_POCKETS_ENABLED':
+      return { ...state, pocketsEnabled: action.enabled }
     case 'RUN_SIMULATION': {
       const { cue } = state.tableState
-      if (!cue) return { ...state, simulation: null }
+      if (!cue) return { ...state, simulation: null, physicsSimulation: null }
       const result = computeTrajectory(cue.position, cue.angle, state.simulationBounces)
-      return { ...state, simulation: result }
+      let physicsResult: PhysicsResult | null = null
+      if (state.physicsEnabled) {
+        physicsResult = simulatePhysics(cue.position, cue.angle, state.tableState.balls, {
+          friction: state.friction,
+          pocketsEnabled: state.pocketsEnabled,
+        })
+      }
+      return { ...state, simulation: result, physicsSimulation: physicsResult }
     }
 
     case 'LOAD_STATE':
-      return { ...state, tableState: action.state, selectedId: null, simulation: null, drawingPoints: [] }
+      return { ...state, tableState: action.state, selectedId: null, simulation: null, physicsSimulation: null, drawingPoints: [] }
     case 'CLEAR_ALL':
-      return { ...state, tableState: createEmptyState(), selectedId: null, simulation: null, drawingPoints: [] }
+      return { ...state, tableState: createEmptyState(), selectedId: null, simulation: null, physicsSimulation: null, drawingPoints: [] }
 
     case 'ERASE_AT': {
       const id = action.id
@@ -218,7 +238,11 @@ export function EditorProvider({
     selectedId: null,
     selectedBallNumber: 0,
     simulation: null,
+    physicsSimulation: null,
     simulationBounces,
+    physicsEnabled: false,
+    friction: 0.3,
+    pocketsEnabled: true,
     drawingPoints: [],
   }
 

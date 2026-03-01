@@ -104,4 +104,25 @@ export const TABLE = {
   POCKET_RADIUS: 18,
   RAIL_WIDTH: 30,
   CUSHION_WIDTH: 15,
+  POCKETS: [
+    { x: 0, y: 0 },                        // top-left
+    { x: 450, y: -2 },                     // top-center
+    { x: 900, y: 0 },                      // top-right
+    { x: 0, y: 450 },                      // bottom-left
+    { x: 450, y: 452 },                    // bottom-center
+    { x: 900, y: 450 },                    // bottom-right
+  ] as Point[],
+}
+
+export interface BallTrajectory {
+  ballId: string
+  ballNumber: number
+  segments: SimulationSegment[]
+  pocketed: boolean
+  finalPosition: Point
+}
+
+export interface PhysicsResult {
+  ballPaths: BallTrajectory[]
+  pocketedBalls: string[]
 }

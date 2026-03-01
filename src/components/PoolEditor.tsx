@@ -237,10 +237,11 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
     [cueDragStart, cueDragCurrent, dispatch],
   )
 
-  // Auto-run simulation whenever cue or bounce count changes
+  // Auto-run simulation whenever cue, bounces, balls, or physics settings change
   useEffect(() => {
     dispatch({ type: 'RUN_SIMULATION' })
-  }, [state.tableState.cue, state.simulationBounces, dispatch])
+  }, [state.tableState.cue, state.simulationBounces, state.tableState.balls,
+      state.physicsEnabled, state.friction, state.pocketsEnabled, dispatch])
 
   // Cursor style based on active tool
   const cursorMap: Record<string, string> = {
@@ -301,9 +302,14 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
           }
           interactive={!readOnly}
           bounces={state.simulationBounces}
+          physicsEnabled={state.physicsEnabled}
+          balls={state.tableState.balls}
+          friction={state.friction}
+          pocketsEnabled={state.pocketsEnabled}
         />
         <SimulationLayer
           simulation={state.simulation}
+          physicsSimulation={state.physicsSimulation}
           offsetX={offsetX}
           offsetY={offsetY}
         />

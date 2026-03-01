@@ -79,6 +79,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
           type: 'ADD_BALL',
           ball: { id, number: state.selectedBallNumber, position: pt },
         })
+        dispatch({ type: 'SET_TOOL', tool: 'select' })
       } else if (tool === 'shot-straight') {
         if (state.drawingPoints.length === 0) {
           dispatch({ type: 'ADD_DRAWING_POINT', point: pt })

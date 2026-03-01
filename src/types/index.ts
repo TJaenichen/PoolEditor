@@ -43,9 +43,7 @@ export type Tool =
   | 'place-ball'
   | 'place-cue'
   | 'shot-straight'
-  | 'shot-curve'
   | 'draw-area'
-  | 'eraser'
 
 export interface PoolTableState {
   version: '1'

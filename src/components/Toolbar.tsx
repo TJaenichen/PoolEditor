@@ -5,10 +5,8 @@ const TOOLS: { tool: Tool; label: string; title: string }[] = [
   { tool: 'select', label: 'SEL', title: 'Select & Move' },
   { tool: 'place-ball', label: 'BALL', title: 'Place Ball' },
   { tool: 'place-cue', label: 'CUE', title: 'Place Cue' },
-  { tool: 'shot-straight', label: 'LINE', title: 'Straight Shot' },
-  { tool: 'shot-curve', label: 'CURV', title: 'Curve Shot' },
+  { tool: 'shot-straight', label: 'SHOT', title: 'Place Shot' },
   { tool: 'draw-area', label: 'AREA', title: 'Draw Area' },
-  { tool: 'eraser', label: 'DEL', title: 'Eraser' },
 ]
 
 const styles = {

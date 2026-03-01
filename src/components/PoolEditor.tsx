@@ -11,6 +11,7 @@ import { SimulationLayer } from '../layers/SimulationLayer'
 import { Toolbar } from './Toolbar'
 import { BallPalette } from './BallPalette'
 import { SimulationControls } from './SimulationControls'
+import { ImportExport } from './ImportExport'
 import { PropertiesPanel } from './PropertiesPanel'
 import { TABLE, type PoolEditorProps, type Point, type Shot, type Area } from '../types'
 import { toJSON } from '../utils/serialization'
@@ -145,8 +146,6 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
           dispatch({ type: 'ADD_SHOT', shot })
           dispatch({ type: 'SET_TOOL', tool: 'select' })
         }
-      } else if (tool === 'shot-curve') {
-        dispatch({ type: 'ADD_DRAWING_POINT', point: pt })
       } else if (tool === 'draw-area') {
         dispatch({ type: 'ADD_DRAWING_POINT', point: pt })
       } else if (tool === 'select') {
@@ -171,15 +170,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
 
       const tool = state.activeTool
 
-      if (tool === 'shot-curve' && state.drawingPoints.length >= 2) {
-        const allPts = [...state.drawingPoints, pt]
-        const shot: Shot = {
-          id: `shot-${Date.now()}`,
-          type: 'curve',
-          points: allPts,
-        }
-        dispatch({ type: 'ADD_SHOT', shot })
-      } else if (tool === 'draw-area' && state.drawingPoints.length >= 2) {
+      if (tool === 'draw-area' && state.drawingPoints.length >= 2) {
         const allPts = [...state.drawingPoints, pt]
         let areaType: Area['type'] = 'polygon'
         if (allPts.length === 3) areaType = 'triangle'
@@ -249,9 +240,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
     'place-ball': 'crosshair',
     'place-cue': 'crosshair',
     'shot-straight': 'crosshair',
-    'shot-curve': 'crosshair',
     'draw-area': 'crosshair',
-    'eraser': 'pointer',
   }
 
   return (
@@ -318,13 +307,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
           offsetX={offsetX}
           offsetY={offsetY}
           selectedBallId={state.selectedId}
-          onBallClick={(ball) => {
-            if (state.activeTool === 'eraser') {
-              dispatch({ type: 'REMOVE_BALL', id: ball.id })
-            } else {
-              dispatch({ type: 'SELECT', id: ball.id })
-            }
-          }}
+          onBallClick={(ball) => dispatch({ type: 'SELECT', id: ball.id })}
           onBallDragEnd={(ball, x, y) =>
             dispatch({ type: 'MOVE_BALL', id: ball.id, position: { x, y } })
           }
@@ -405,6 +388,7 @@ function EditorWithCallbacks({
           <Toolbar />
           <BallPalette />
           <SimulationControls />
+          <ImportExport />
         </div>
       )}
       <EditorCanvas width={width} readOnly={readOnly} />

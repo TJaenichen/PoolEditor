@@ -46,23 +46,21 @@ export function ShotLayer({
                 onDblClick={() => onShotDblClick?.(shot)}
                 onDblTap={() => onShotDblClick?.(shot)}
               />
-              {/* Draggable midpoint handle — drag to curve the shot */}
-              {interactive && (
-                <Circle
-                  x={midX}
-                  y={midY}
-                  radius={5}
-                  fill="rgba(255,255,255,0.6)"
-                  stroke={color}
-                  strokeWidth={1.5}
-                  draggable
-                  onDragStart={() => onMidpointDragStart?.(shot.id)}
-                  onDragEnd={(e) => {
-                    const pos = e.target.position()
-                    onMidpointDragEnd?.(shot.id, pos.x, pos.y)
-                  }}
-                />
-              )}
+              {/* Midpoint handle — always visible, drag to curve */}
+              <Circle
+                x={midX}
+                y={midY}
+                radius={6}
+                fill="rgba(255,255,255,0.7)"
+                stroke={color}
+                strokeWidth={1.5}
+                draggable={interactive}
+                onDragStart={() => onMidpointDragStart?.(shot.id)}
+                onDragEnd={(e) => {
+                  const pos = e.target.position()
+                  onMidpointDragEnd?.(shot.id, pos.x, pos.y)
+                }}
+              />
               {/* Endpoint handles when selected */}
               {isSelected && interactive && shot.points.map((pt, i) => (
                 <Circle
@@ -127,17 +125,17 @@ export function ShotLayer({
                   strokeWidth={0}
                 />
               )}
-              {/* Control point handles (always when interactive) */}
-              {interactive && shot.points.map((pt, i) => (
+              {/* Control point handles — always visible, draggable in select mode */}
+              {shot.points.map((pt, i) => (
                 <Circle
                   key={`cp-${shot.id}-${i}`}
                   x={pt.x}
                   y={pt.y}
-                  radius={5}
-                  fill={i === 0 || i === shot.points.length - 1 ? color : '#FFF'}
+                  radius={i === 0 || i === shot.points.length - 1 ? 5 : 6}
+                  fill={i === 0 || i === shot.points.length - 1 ? color : 'rgba(255,255,255,0.7)'}
                   stroke={color}
                   strokeWidth={1}
-                  draggable
+                  draggable={interactive}
                   onDragEnd={(e) => {
                     const pos = e.target.position()
                     onControlPointDragEnd?.(shot.id, i, pos.x, pos.y)

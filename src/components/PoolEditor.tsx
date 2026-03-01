@@ -86,10 +86,21 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
       if (readOnly) return
       const stage = e.target.getStage()
       if (!stage) return
+
+      // Only process clicks on empty space (stage background or layer)
+      // Clicks on existing shapes (balls, shots, handles) are handled by their own handlers
+      const isEmptySpace = e.target === stage || e.target.getParent()?.getClassName() === 'Layer'
+
       const pt = pointerToTable(stage)
       if (!pt) return
 
       const tool = state.activeTool
+
+      if (!isEmptySpace) {
+        // Clicked on an existing shape — only deselect logic for select tool is needed,
+        // and shape handlers (onBallClick, onShotClick, etc.) already fired.
+        return
+      }
 
       if (tool === 'place-ball') {
         const id = `ball-${state.selectedBallNumber}-${Date.now()}`
@@ -115,10 +126,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
       } else if (tool === 'draw-area') {
         dispatch({ type: 'ADD_DRAWING_POINT', point: pt })
       } else if (tool === 'select') {
-        // Deselect when clicking empty table area
-        if (e.target === stage || e.target.getParent()?.getClassName() === 'Layer') {
-          dispatch({ type: 'SELECT', id: null })
-        }
+        dispatch({ type: 'SELECT', id: null })
       }
     },
     [readOnly, state.activeTool, state.selectedBallNumber, state.drawingPoints, dispatch, pointerToTable],
@@ -201,6 +209,11 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
     [cueDragStart, cueDragCurrent, dispatch],
   )
 
+  // Auto-run simulation whenever cue or bounce count changes
+  useEffect(() => {
+    dispatch({ type: 'RUN_SIMULATION' })
+  }, [state.tableState.cue, state.simulationBounces, dispatch])
+
   // Cursor style based on active tool
   const cursorMap: Record<string, string> = {
     'select': 'default',
@@ -255,18 +268,23 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
               dispatch({ type: 'RESET_SHOT_TO_STRAIGHT', id: shot.id })
             }
           }}
+          onControlPointDragMove={(shotId, pointIndex, x, y) =>
+            dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex, position: { x, y } })
+          }
           onControlPointDragEnd={(shotId, pointIndex, x, y) =>
             dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex, position: { x, y } })
           }
           onMidpointDragStart={(shotId) => {
-            // Convert straight shot to curve by adding midpoint
             dispatch({ type: 'ADD_SHOT_MIDPOINT', id: shotId })
           }}
+          onMidpointDragMove={(shotId, x, y) => {
+            dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex: 1, position: { x, y } })
+          }}
           onMidpointDragEnd={(shotId, x, y) => {
-            // The midpoint is index 1 (between start[0] and end[2])
             dispatch({ type: 'UPDATE_SHOT_POINT', shotId, pointIndex: 1, position: { x, y } })
           }}
           interactive={!readOnly}
+          bounces={state.simulationBounces}
         />
         <SimulationLayer
           simulation={state.simulation}

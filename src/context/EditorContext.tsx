@@ -177,27 +177,9 @@ function reducer(state: EditorState, action: EditorAction): EditorState {
     case 'SET_SIMULATION_BOUNCES':
       return { ...state, simulationBounces: action.count }
     case 'RUN_SIMULATION': {
-      const { cue, shots } = state.tableState
-      if (!cue || shots.length === 0) return { ...state, simulation: null }
-      // Find the shot starting closest to the cue position
-      let closestShot: typeof shots[0] | null = null
-      let closestDist = Infinity
-      for (const shot of shots) {
-        if (shot.points.length < 2) continue
-        const dx = shot.points[0].x - cue.position.x
-        const dy = shot.points[0].y - cue.position.y
-        const d = Math.sqrt(dx * dx + dy * dy)
-        if (d < closestDist) {
-          closestDist = d
-          closestShot = shot
-        }
-      }
-      if (!closestShot || closestShot.points.length < 2) return { ...state, simulation: null }
-      // Compute angle from first to second point of the shot
-      const p0 = closestShot.points[0]
-      const p1 = closestShot.points[1]
-      const angle = -Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180 / Math.PI
-      const result = computeTrajectory(cue.position, angle, state.simulationBounces)
+      const { cue } = state.tableState
+      if (!cue) return { ...state, simulation: null }
+      const result = computeTrajectory(cue.position, cue.angle, state.simulationBounces)
       return { ...state, simulation: result }
     }
 

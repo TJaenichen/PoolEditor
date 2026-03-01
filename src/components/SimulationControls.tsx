@@ -27,34 +27,15 @@ const styles = {
     flex: 1,
     cursor: 'pointer',
   },
-  btn: {
-    padding: '6px 12px',
-    background: '#3a5fcd',
-    border: 'none',
-    borderRadius: '4px',
-    color: '#fff',
-    fontSize: '12px',
-    cursor: 'pointer',
-  },
-  btnSecondary: {
-    padding: '6px 12px',
-    background: '#1a1a2e',
-    border: '1px solid #444',
-    borderRadius: '4px',
-    color: '#ccc',
-    fontSize: '12px',
-    cursor: 'pointer',
-  },
 }
 
 export function SimulationControls() {
-  const { bounces, simulation, runSimulation, clearSimulation, setBounces } = useSimulation()
+  const { bounces, setBounces } = useSimulation()
 
   return (
     <div style={styles.panel}>
-      <p style={styles.heading}>Simulation</p>
+      <p style={styles.heading}>Bounces</p>
       <div style={styles.row}>
-        <span>Bounces:</span>
         <input
           type="range"
           min={0}
@@ -64,16 +45,6 @@ export function SimulationControls() {
           style={styles.slider}
         />
         <span style={{ minWidth: '18px', textAlign: 'right' }}>{bounces}</span>
-      </div>
-      <div style={{ display: 'flex', gap: '6px' }}>
-        <button style={styles.btn} onClick={runSimulation}>
-          Simulate
-        </button>
-        {simulation && (
-          <button style={styles.btnSecondary} onClick={clearSimulation}>
-            Clear
-          </button>
-        )}
       </div>
     </div>
   )

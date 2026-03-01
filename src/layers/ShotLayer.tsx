@@ -1,6 +1,7 @@
 import { Layer, Line, Circle, Arrow, Group, Text } from 'react-konva'
-import { Shot, Point } from '../types'
+import { Shot, Point, TABLE } from '../types'
 import { catmullRomToBezier, sampleBezierPath } from '../utils/spline'
+import { computeTrajectory } from '../utils/physics'
 
 interface ShotLayerProps {
   shots: Shot[]
@@ -9,15 +10,40 @@ interface ShotLayerProps {
   selectedShotId?: string | null
   onShotClick?: (shot: Shot) => void
   onShotDblClick?: (shot: Shot) => void
+  onControlPointDragMove?: (shotId: string, pointIndex: number, x: number, y: number) => void
   onControlPointDragEnd?: (shotId: string, pointIndex: number, x: number, y: number) => void
   onMidpointDragStart?: (shotId: string) => void
+  onMidpointDragMove?: (shotId: string, x: number, y: number) => void
   onMidpointDragEnd?: (shotId: string, x: number, y: number) => void
   interactive?: boolean
+  bounces?: number
+}
+
+// Compute continuation trajectory from the endpoint of a shot
+function shotTrajectory(shot: Shot, curvePoints: Point[] | null, bounces: number) {
+  if (bounces <= 0) return null
+  let fromPt: Point
+  let toPt: Point
+  if (shot.type === 'straight' && shot.points.length >= 2) {
+    fromPt = shot.points[shot.points.length - 2]
+    toPt = shot.points[shot.points.length - 1]
+  } else if (curvePoints && curvePoints.length >= 2) {
+    fromPt = curvePoints[curvePoints.length - 2]
+    toPt = curvePoints[curvePoints.length - 1]
+  } else {
+    return null
+  }
+  const dx = toPt.x - fromPt.x
+  const dy = toPt.y - fromPt.y
+  if (dx === 0 && dy === 0) return null
+  const angle = (-Math.atan2(dy, dx) * 180) / Math.PI
+  return computeTrajectory(toPt, angle, bounces)
 }
 
 export function ShotLayer({
   shots, offsetX, offsetY, selectedShotId, onShotClick, onShotDblClick,
-  onControlPointDragEnd, onMidpointDragStart, onMidpointDragEnd, interactive = false
+  onControlPointDragMove, onControlPointDragEnd, onMidpointDragStart, onMidpointDragMove, onMidpointDragEnd, interactive = false,
+  bounces = 0,
 }: ShotLayerProps) {
   return (
     <Layer x={offsetX} y={offsetY}>
@@ -30,6 +56,7 @@ export function ShotLayer({
           const end = shot.points[shot.points.length - 1]
           const midX = (start.x + end.x) / 2
           const midY = (start.y + end.y) / 2
+          const traj = shotTrajectory(shot, null, bounces)
 
           return (
             <Group key={shot.id}>
@@ -46,6 +73,23 @@ export function ShotLayer({
                 onDblClick={() => onShotDblClick?.(shot)}
                 onDblTap={() => onShotDblClick?.(shot)}
               />
+              {/* Continuation trajectory */}
+              {traj && traj.segments.length > 0 && (() => {
+                const trajPts: number[] = []
+                trajPts.push(traj.segments[0].start.x, traj.segments[0].start.y)
+                for (const seg of traj.segments) trajPts.push(seg.end.x, seg.end.y)
+                const bouncePts = traj.segments.slice(0, -1).map((seg) => seg.end)
+                const lastEnd = traj.segments[traj.segments.length - 1].end
+                return (
+                  <Group listening={false}>
+                    <Line points={trajPts} stroke={color} strokeWidth={1} opacity={0.35} dash={[4, 4]} />
+                    {bouncePts.map((pt, i) => (
+                      <Circle key={`tb-${shot.id}-${i}`} x={pt.x} y={pt.y} radius={3} fill={color} opacity={0.4} />
+                    ))}
+                    <Circle x={lastEnd.x} y={lastEnd.y} radius={TABLE.BALL_RADIUS} stroke={color} strokeWidth={1} opacity={0.2} dash={[3, 3]} />
+                  </Group>
+                )
+              })()}
               {/* Midpoint handle — always visible, drag to curve */}
               <Circle
                 x={midX}
@@ -56,6 +100,10 @@ export function ShotLayer({
                 strokeWidth={1.5}
                 draggable={interactive}
                 onDragStart={() => onMidpointDragStart?.(shot.id)}
+                onDragMove={(e) => {
+                  const pos = e.target.position()
+                  onMidpointDragMove?.(shot.id, pos.x, pos.y)
+                }}
                 onDragEnd={(e) => {
                   const pos = e.target.position()
                   onMidpointDragEnd?.(shot.id, pos.x, pos.y)
@@ -72,6 +120,10 @@ export function ShotLayer({
                   stroke={color}
                   strokeWidth={1}
                   draggable
+                  onDragMove={(e) => {
+                    const pos = e.target.position()
+                    onControlPointDragMove?.(shot.id, i, pos.x, pos.y)
+                  }}
                   onDragEnd={(e) => {
                     const pos = e.target.position()
                     onControlPointDragEnd?.(shot.id, i, pos.x, pos.y)
@@ -96,6 +148,7 @@ export function ShotLayer({
           const bezierSegments = catmullRomToBezier(shot.points)
           const curvePoints = sampleBezierPath(bezierSegments, 30)
           const flatPoints = curvePoints.flatMap((p: Point) => [p.x, p.y])
+          const traj = shotTrajectory(shot, curvePoints, bounces)
 
           return (
             <Group key={shot.id}>
@@ -125,6 +178,23 @@ export function ShotLayer({
                   strokeWidth={0}
                 />
               )}
+              {/* Continuation trajectory */}
+              {traj && traj.segments.length > 0 && (() => {
+                const trajPts: number[] = []
+                trajPts.push(traj.segments[0].start.x, traj.segments[0].start.y)
+                for (const seg of traj.segments) trajPts.push(seg.end.x, seg.end.y)
+                const bouncePts = traj.segments.slice(0, -1).map((seg) => seg.end)
+                const lastEnd = traj.segments[traj.segments.length - 1].end
+                return (
+                  <Group listening={false}>
+                    <Line points={trajPts} stroke={color} strokeWidth={1} opacity={0.35} dash={[4, 4]} />
+                    {bouncePts.map((pt, i) => (
+                      <Circle key={`tb-${shot.id}-${i}`} x={pt.x} y={pt.y} radius={3} fill={color} opacity={0.4} />
+                    ))}
+                    <Circle x={lastEnd.x} y={lastEnd.y} radius={TABLE.BALL_RADIUS} stroke={color} strokeWidth={1} opacity={0.2} dash={[3, 3]} />
+                  </Group>
+                )
+              })()}
               {/* Control point handles — always visible, draggable in select mode */}
               {shot.points.map((pt, i) => (
                 <Circle
@@ -136,6 +206,10 @@ export function ShotLayer({
                   stroke={color}
                   strokeWidth={1}
                   draggable={interactive}
+                  onDragMove={(e) => {
+                    const pos = e.target.position()
+                    onControlPointDragMove?.(shot.id, i, pos.x, pos.y)
+                  }}
                   onDragEnd={(e) => {
                     const pos = e.target.position()
                     onControlPointDragEnd?.(shot.id, i, pos.x, pos.y)

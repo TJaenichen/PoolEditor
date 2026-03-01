@@ -21,6 +21,10 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
   const stageRef = useRef<Konva.Stage>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  // Keep a ref to latest state so keyboard handlers always see current values
+  const stateRef = useRef(state)
+  stateRef.current = state
+
   // Cue drag state
   const [cueDragStart, setCueDragStart] = useState<Point | null>(null)
   const [cueDragCurrent, setCueDragCurrent] = useState<Point | null>(null)
@@ -45,29 +49,28 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
     [scale, offsetX, offsetY],
   )
 
-  // Keyboard shortcuts: Delete, d to remove selected item; Escape to deselect
+  // Keyboard shortcuts: Delete, d to remove; Escape to deselect; arrows to move ball
   useEffect(() => {
     if (readOnly) return
     const handler = (e: KeyboardEvent) => {
+      const s = stateRef.current
       if (e.key === 'Delete' || e.key === 'd' || e.key === 'D') {
-        if (state.selectedId) {
-          dispatch({ type: 'ERASE_AT', id: state.selectedId })
+        if (s.selectedId) {
+          dispatch({ type: 'ERASE_AT', id: s.selectedId })
         }
       } else if (e.key === 'Escape') {
         dispatch({ type: 'SELECT', id: null })
         dispatch({ type: 'CLEAR_DRAWING' })
       } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        // Move selected ball with arrow keys
-        const selectedBall = state.tableState.balls.find((b) => b.id === state.selectedId)
+        const selectedBall = s.tableState.balls.find((b) => b.id === s.selectedId)
         if (!selectedBall) return
         e.preventDefault()
-        const step = e.shiftKey ? 1 : TABLE.BALL_RADIUS // shift = 1px, normal = half ball width
+        const step = e.shiftKey ? 1 : TABLE.BALL_RADIUS
         let { x, y } = selectedBall.position
         if (e.key === 'ArrowUp') y -= step
         if (e.key === 'ArrowDown') y += step
         if (e.key === 'ArrowLeft') x -= step
         if (e.key === 'ArrowRight') x += step
-        // Clamp to table
         x = Math.max(0, Math.min(TABLE.WIDTH, x))
         y = Math.max(0, Math.min(TABLE.HEIGHT, y))
         dispatch({ type: 'MOVE_BALL', id: selectedBall.id, position: { x, y } })
@@ -75,7 +78,7 @@ function EditorCanvas({ width, readOnly }: { width: number; readOnly: boolean })
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [readOnly, state.selectedId, dispatch])
+  }, [readOnly, dispatch])
 
   // Stage click handler
   const handleStageClick = useCallback(

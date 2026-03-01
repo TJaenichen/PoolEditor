@@ -11,8 +11,10 @@ export type {
   Tool,
   SimulationResult,
   SimulationSegment,
+  BallTrajectory,
+  PhysicsResult,
 } from './types'
 export { BALL_COLORS, TABLE } from './types'
 export { toJSON, fromJSON, createEmptyState } from './utils/serialization'
 export { eightBallRack, nineBallRack } from './utils/templates'
-export { computeTrajectory } from './utils/physics'
+export { computeTrajectory, simulatePhysics } from './utils/physics'

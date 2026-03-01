@@ -1,6 +1,8 @@
 # Pool Editor
 
-A React component for creating and editing pool table training diagrams. Place balls, draw shots (straight and curved), simulate cue ball trajectories with bounces, and draw highlight areas — all exportable as JSON.
+A React component for pool table shot training and planning. Place balls, draw shot lines, and visualize trajectories with physics simulation. Not a game — designed for planning training scenarios.
+
+Built with React 18, TypeScript, and [react-konva](https://github.com/konvajs/react-konva) for canvas rendering. Packaged as a Vite library (ESM + UMD) with no external state management dependencies.
 
 ## Install
 
@@ -8,7 +10,7 @@ A React component for creating and editing pool table training diagrams. Place b
 npm install github:TJaenichen/PoolEditor
 ```
 
-Peer dependencies: `react >= 18`, `react-dom >= 18`, `konva >= 9`, `react-konva >= 18`.
+Peer dependencies: `react >= 18`, `react-dom >= 18`.
 
 ## Quick Start
 
@@ -21,7 +23,6 @@ function App() {
       width={1100}
       simulationBounces={3}
       onChange={(state) => {
-        // Send to your API
         fetch('/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -41,19 +42,24 @@ function App() {
 | `onChange` | `(state: PoolTableState) => void` | `undefined` | Fires on every edit with the full state |
 | `readOnly` | `boolean` | `false` | Disables all editing (view-only mode) |
 | `width` | `number \| string` | `900` | Width of the editor canvas in pixels |
-| `simulationBounces` | `number` | `0` | Default number of cushion bounces for simulation (0–10) |
+| `simulationBounces` | `number` | `0` | Default bounce count for trajectory simulation (0-10) |
 | `className` | `string` | `undefined` | CSS class for the root container |
 | `style` | `CSSProperties` | `undefined` | Inline styles for the root container |
 
 ## Tools
 
-- **Select** — Click to select balls, shots, or areas. Drag to reposition.
-- **Place Ball** — Pick a ball from the palette, click the table to place it.
-- **Place Cue** — Click to position the cue stick; drag the handle to rotate.
-- **Straight Shot** — Click start point, click end point → arrow drawn.
-- **Curve Shot** — Click to add control points, double-click to finish → smooth bezier curve.
-- **Draw Area** — Click to add polygon vertices, double-click to close the shape.
-- **Eraser** — Click any item to remove it.
+- **SEL** — Select and move balls, cue, shots, and areas
+- **BALL** — Pick a ball from the palette, click the table to place it
+- **CUE** — Click and drag to place the cue stick with position and angle
+- **SHOT** — Click start point, click end point. Drag the midpoint handle to curve it. Double-click a shot to reset to straight.
+- **AREA** — Click to add polygon vertices, double-click to close the shape
+
+### Keyboard Shortcuts
+
+- **Arrow keys** — Move selected ball or cue (Shift for fine control)
+- **Q / E** — Rotate selected cue (Shift for 1-degree increments)
+- **Delete / D** — Remove selected element
+- **Escape** — Deselect
 
 ## Templates
 
@@ -61,9 +67,17 @@ Click **8-Ball Rack** or **9-Ball Rack** in the ball palette to pre-fill a stand
 
 ## Simulation
 
-1. Place a cue ball and draw at least one shot line from it.
-2. Set the bounce count (0–10) in the Simulation panel.
-3. Click **Simulate** — the trajectory animates across the table with bounce reflections.
+- **Bounces slider** (0-10) — Shows wall-bounce trajectory from the cue tip
+- **Physics toggle** — Enables ball-to-ball elastic collision simulation
+- **Friction slider** — Controls how far balls travel before stopping (physics mode)
+- **Pockets toggle** — Enables pocket detection; balls reaching pockets are captured (physics mode, default on)
+
+All trajectories update live as you move the cue, balls, or shot control points.
+
+## Import / Export
+
+- **Export JSON** — Downloads the current table state as a `.json` file
+- **Import JSON** — Loads a previously saved table state from a `.json` file
 
 ## JSON Format
 
@@ -81,16 +95,21 @@ The `PoolTableState` is a plain JSON object:
 }
 ```
 
+## Table Coordinates
+
+The playing surface uses abstract units: 900 wide x 450 tall. Ball radius is 11, pocket radius is 18. All positions in `PoolTableState` use these coordinates.
+
 ## Utility Exports
 
 ```ts
 import {
-  toJSON,          // (state) => JSON string
-  fromJSON,        // (json) => PoolTableState
+  toJSON,            // (state) => JSON string
+  fromJSON,          // (json) => PoolTableState
   createEmptyState,
-  eightBallRack,   // () => { balls, cue }
+  eightBallRack,     // () => { balls, cue }
   nineBallRack,
-  computeTrajectory,
+  computeTrajectory, // simple wall-bounce trajectory
+  simulatePhysics,   // full physics with ball collisions
   BALL_COLORS,
   TABLE,
 } from 'pool-editor'
@@ -100,7 +119,7 @@ import {
 
 ```bash
 pnpm install
-pnpm run dev     # Dev server at http://localhost:5173
+pnpm run dev     # Dev server with hot reload
 pnpm run build   # Builds dist/pool-editor.js + UMD + .d.ts
 ```
 
